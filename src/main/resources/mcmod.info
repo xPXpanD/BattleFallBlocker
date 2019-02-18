@@ -1,0 +1,8 @@
+[{
+  "modid": "battlefallblocker",
+  "name": "Battle Fall Blocker",
+  "description": "Prevents people from falling to their death if they were mounted after a flying battle.",
+  "version": "0.1",
+  "authorList": ["XpanD"],
+  "dependencies": ["pixelmon"]
+}]
