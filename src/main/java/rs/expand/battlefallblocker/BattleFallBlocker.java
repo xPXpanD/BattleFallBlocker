@@ -39,9 +39,7 @@ import org.apache.logging.log4j.Logger;
         acceptableRemoteVersions = "*"
 
         // Not listed but certainly appreciated:
-        // Hiroku (helping with questions and setting up UTF-8 encoding, which made § work)
         // salmjak (GitHub snippets for dealing with Forge events -- we've come full circle!)
-        // Xenoyia (co-owning the server this started on, and basic task code)
 )
 
 public class BattleFallBlocker
@@ -121,23 +119,10 @@ public class BattleFallBlocker
         }
     }
 
-    public void onHitWaterEvent(final Water)
-
     @SubscribeEvent
     public void onPlayerJoinEvent(final PlayerEvent.PlayerLoggedInEvent event)
     {
         // Make sure our joining player doesn't have the Pokémon-riding tag set anymore, if they had it.
         event.player.removeTag("fallingAfterDismount");
     }
-
-/*    private static boolean validateOptionalKeys(Object... keys)
-    {
-        for (Object key : keys)
-        {
-            if (key == null)
-                return false;
-        }
-
-        return true;
-    }*/
 }
