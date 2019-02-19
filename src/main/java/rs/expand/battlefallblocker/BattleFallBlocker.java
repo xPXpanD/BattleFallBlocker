@@ -47,6 +47,9 @@ public class BattleFallBlocker
     // Set up a logger for logging stuff. Yup.
     private static final Logger logger = LogManager.getLogger("battlefallblocker");
 
+    // Set up a timer we can access from multiple places. Used so we can clear our flag if players fall into liquids.
+    private final ScheduledExecutorService liquidCheckTimer = Executors.newSingleThreadScheduledExecutor();
+
     @Mod.EventHandler
     public void onPreInitEvent(final FMLPreInitializationEvent event)
     {
@@ -56,10 +59,12 @@ public class BattleFallBlocker
         logger.info("===========================================================================");
         logger.info("");
 
+        // Register our listeners with Forge and Pixelmon.
         Pixelmon.EVENT_BUS.register(this);
         MinecraftForge.EVENT_BUS.register(this);
     }
 
+    // FIXME: Custom mod liquids will allow people to stack "uses" of fall protection by dismounting into them. Fixable?
     @SubscribeEvent
     public void onRidePokemonEvent(final RidePokemonEvent event)
     {
@@ -67,54 +72,83 @@ public class BattleFallBlocker
         event.player.getEntityData().removeTag("fallingAfterDismount");
 
         // Execute a timed task that checks if our player is still riding a Pokémon.
-        final ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor();
-        timer.scheduleWithFixedDelay(() ->
+        final ScheduledExecutorService rideCheckTimer = Executors.newSingleThreadScheduledExecutor();
+        rideCheckTimer.scheduleWithFixedDelay(() ->
         {
             // Did the player stop merrily riding their Pokémon?
             if (!event.player.isRiding())
             {
-                // Is the player dismounted but still up in the air? They're falling! Quick, set the flag!
-                if (!event.player.onGround && !event.player.isInWater())
+                // Is the player dismounted but still up in the air?
+                if (!event.player.onGround)
                 {
-                    logger.warn("--> §cStopped riding. We're airborne.");
-                    event.player.getEntityData().setBoolean("fallingAfterDismount", true);
+                    // Is the player not currently in a liquid?
+                    if (!event.player.isInWater() && !event.player.isInLava())
+                    {
+                        logger.warn("Stopped riding. We're airborne.");
+
+                        // They're falling!! Quick, set the flag!
+                        event.player.getEntityData().setBoolean("fallingAfterDismount", true);
+
+                        if (event.player.onGround)
+                            logger.warn("Player dismounted on the ground.");
+
+                        if (event.player.isInWater())
+                            logger.warn("Player dismounted in water.");
+
+                        if (event.player.isInLava())
+                            logger.warn("Player dismounted in lava.");
+
+                        // Check for contact with liquids. Prevents them from giving players free fall protection.
+                        // FIXME: Does not fire most of the time, you seem to dismount too fast?
+                        liquidCheckTimer.scheduleWithFixedDelay(() ->
+                        {
+                            // Was the player caught dipping in some strange liquid? Don't attempt to save them.
+                            if (event.player.isInWater() || event.player.isInLava())
+                            {
+                                logger.warn("Player was found in a liquid. Removing protection.");
+
+                                // Clear the falling flag.
+                                event.player.getEntityData().removeTag("fallingAfterDismount");
+
+                                // Clean up after yourself.
+                                liquidCheckTimer.shutdown();
+                                liquidCheckTimer.shutdown();
+                            }
+                        }, 0, 200, TimeUnit.MILLISECONDS); // Faster check. Important.
+                    }
                 }
 
-                if (event.player.onGround)
-                    logger.error("Player is on the ground.");
-
-                if (event.player.isInWater())
-                    logger.error("Player is in water.");
-
-                // Cancel the task since our player is now dismounted.
-                timer.shutdown();
+                // Cancel this task since our player is now dismounted.
+                rideCheckTimer.shutdown();
             }
             else
                 logger.warn("§aPlayer " + event.player.getName() + " is riding something.");
         }, 0, 500, TimeUnit.MILLISECONDS);
     }
 
-    // FIXME: Dismounting into water preserves the flag. You can abuse that to get free immunity for your next fall.
-
     @SubscribeEvent
     public void onFallDamageEvent(final LivingFallEvent event)
     {
         if (event.getEntity() instanceof EntityPlayer)
         {
-            logger.warn("§aFalling player! Entity is " + event.getEntity() + ", named " +
-                    event.getEntity().getName() + ", fallDistance " + event.getEntity().fallDistance);
+            logger.warn("§aFalling player! fallDistance is: " + event.getEntity().fallDistance);
 
             // Was our player previously on a Pokémon?
             if (event.getEntity().getEntityData().getBoolean("fallingAfterDismount"))
             {
-                logger.warn("§a1. Entity has flag! Currently: " +
-                        event.getEntity().getEntityData().getBoolean("fallingAfterDismount"));
+                logger.warn("§aEntity has flag! Saving.");
 
                 // Kill the flag.
                 event.getEntity().getEntityData().removeTag("fallingAfterDismount");
 
                 // Spring our net. This saves the player.
                 event.setCanceled(true);
+
+                if (liquidCheckTimer.isShutdown())
+                    logger.error("The liquid check timer isn't running anymore!");
+
+                // Shutdown the liquid check timer, too. Should still be running if we got here.
+                liquidCheckTimer.shutdown();
             }
         }
     }
