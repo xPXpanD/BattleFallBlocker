@@ -71,6 +71,7 @@ public class BattleFallBlocker
         // Clear the falling flag if it exists.
         event.player.getEntityData().removeTag("fallingAfterDismount");
 
+        // TODO: Async isInX checks are BAD, as they can load chunks... async. Yeah.
         // Execute a timed task that checks if our player is still riding a Pokémon.
         final ScheduledExecutorService rideCheckTimer = Executors.newSingleThreadScheduledExecutor();
         rideCheckTimer.scheduleWithFixedDelay(() ->
