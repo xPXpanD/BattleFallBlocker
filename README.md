@@ -2,4 +2,4 @@
 
 A small sidemod for Pixelmon Reforged that prevents death by falling off of a mount after battling.
 
-This is a work in progress, I'll add more stuff as we go. This probably won't be up on the site, too simple.
+I am no longer maintaining this project, following my removal from the Pixelmon mod team over something very minor.
